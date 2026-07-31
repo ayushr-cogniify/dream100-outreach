@@ -74,28 +74,79 @@ async def upload_kb(file: UploadFile = File(...)) -> JSONResponse:
                          "preview": text[:600]})
 
 
+def _normalize_contacts(raw: str):
+    """Accept either our native schema OR a LinkedIn 'Connections' export and
+    return rows in the native schema. Skips preamble lines, blank rows, and rows
+    with no name/URL. Returns (contacts, skipped, source_label)."""
+    lines = raw.splitlines()
+    header_idx = 0
+    for i, line in enumerate(lines):
+        low = line.lower()
+        if ("first name" in low and "last name" in low) or "linkedin_url" in low or low.startswith("name,"):
+            header_idx = i
+            break
+    reader = csv.DictReader(io.StringIO("\n".join(lines[header_idx:])))
+    fields = [f.strip() for f in (reader.fieldnames or [])]
+    is_linkedin = "First Name" in fields or "URL" in fields
+
+    contacts, skipped = [], 0
+    for row in reader:
+        row = {(k.strip() if k else k): (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+        if is_linkedin:
+            name = f"{row.get('First Name','') or ''} {row.get('Last Name','') or ''}".strip()
+            title = row.get("Position", "") or ""
+            company = row.get("Company", "") or ""
+            url = row.get("URL", "") or ""
+        else:
+            name = row.get("name", "") or ""
+            title = row.get("title", "") or ""
+            company = row.get("company", "") or ""
+            url = row.get("linkedin_url", "") or ""
+        notes = row.get("scraped_profile_notes", "") or ""
+        if not notes:  # connection exports have no activity — synthesize a minimal note
+            if title and company:
+                notes = f"{title} at {company}"
+            elif title or company:
+                notes = title or f"Works at {company}"
+        if not name or not url:
+            skipped += 1
+            continue
+        contacts.append({"name": name, "title": title, "company": company,
+                         "linkedin_url": url, "scraped_profile_notes": notes})
+    return contacts, skipped, ("LinkedIn connections export" if is_linkedin else "standard CSV")
+
+
 @app.post("/api/upload_contacts")
 async def upload_contacts(file: UploadFile = File(...)) -> JSONResponse:
     raw = (await file.read()).decode("utf-8", errors="replace")
-    rows = list(csv.DictReader(io.StringIO(raw)))
-    required = {"name", "title", "company", "linkedin_url", "scraped_profile_notes"}
-    missing = required - set(rows[0].keys()) if rows else required
-    if missing:
-        return JSONResponse({"error": f"CSV missing columns: {', '.join(sorted(missing))}"}, status_code=400)
+    contacts, skipped, source = _normalize_contacts(raw)
+    if not contacts:
+        return JSONResponse({"error": "No usable rows found. Upload a LinkedIn 'Connections' export "
+                             "or a CSV with columns name,title,company,linkedin_url,scraped_profile_notes."},
+                            status_code=400)
     dest = UPLOADS / "contacts.csv"
-    dest.write_text(raw, encoding="utf-8")
+    fields = ["name", "title", "company", "linkedin_url", "scraped_profile_notes"]
+    with open(dest, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(contacts)
     STATE["contacts_path"] = str(dest)
-    return JSONResponse({"filename": file.filename, "count": len(rows),
-                         "sample": [r["name"] for r in rows[:5]]})
+    return JSONResponse({"filename": file.filename, "count": len(contacts), "skipped": skipped,
+                         "source": source, "synthesized_notes": source.startswith("LinkedIn"),
+                         "sample": [c["name"] for c in contacts[:5]]})
 
 
 @app.post("/api/generate")
-def generate(accounts: int = Form(6), start: str = Form(""), dry_run: bool = Form(True)) -> JSONResponse:
+def generate(accounts: int = Form(6), start: str = Form(""), dry_run: bool = Form(True),
+             limit: int = Form(25)) -> JSONResponse:
     if not STATE["kb_path"] or not STATE["contacts_path"]:
         return JSONResponse({"error": "Upload both a knowledge base and a contacts CSV first."}, status_code=400)
     kb_text = load_knowledge_base(STATE["kb_path"])
     with open(STATE["contacts_path"], newline="", encoding="utf-8") as f:
         contacts = list(csv.DictReader(f))
+    total_available = len(contacts)
+    if limit and limit > 0:
+        contacts = contacts[:limit]           # cost cap: only process the first N
     start_date = dt.date.fromisoformat(start) if start else dt.date.today()
 
     if not dry_run and not os.environ.get("ANTHROPIC_API_KEY"):
@@ -119,6 +170,7 @@ def generate(accounts: int = Form(6), start: str = Form(""), dry_run: bool = For
     return JSONResponse({
         "count": len(rows),
         "contacts": len(contacts),
+        "total_available": total_available,
         "steps": len(SEQUENCE),
         "accounts": accounts,
         "peak_invites_per_account_day": worst,

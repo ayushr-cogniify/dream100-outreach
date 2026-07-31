@@ -93,6 +93,10 @@
         <input type="number" id="accounts" value="6" min="1" max="50">
       </div>
       <div>
+        <label>Max contacts to process (cost cap)</label>
+        <input type="number" id="limit" value="25" min="1" max="5000">
+      </div>
+      <div>
         <label>Campaign start date</label>
         <input type="date" id="start">
       </div>
@@ -157,13 +161,17 @@ async function uploadContacts() {
   const r = await fetch('/api/upload_contacts',{method:'POST',body:fd});
   const d = await r.json();
   if (!r.ok) return setNote('contactsNote', d.error, 'bad');
-  setNote('contactsNote', `Loaded ${d.count} contacts (${d.sample.join(', ')}${d.count>5?'…':''}).`, 'ok');
+  let msg = `Loaded ${d.count} contacts from ${d.source} (${d.sample.join(', ')}${d.count>5?'…':''}).`;
+  if (d.skipped) msg += ` Skipped ${d.skipped} blank/invalid rows.`;
+  if (d.synthesized_notes) msg += ` Note: exports have no activity data, so personalization uses title + company only.`;
+  setNote('contactsNote', msg, 'ok');
   refreshStatus();
 }
 async function generate() {
   const fd = new FormData();
   fd.append('accounts', $('accounts').value);
   fd.append('start', $('start').value);
+  fd.append('limit', $('limit').value);
   fd.append('dry_run', $('dryRun').checked ? 'true':'false');
   $('genBtn').disabled = true; setNote('genNote', $('dryRun').checked ? 'Building…' : 'Calling Claude — this can take a moment…');
   const r = await fetch('/api/generate',{method:'POST',body:fd});
@@ -176,9 +184,10 @@ async function generate() {
 function renderResult(d) {
   $('resultCard').style.display='block';
   const capChip = d.cap_ok ? `<span class="chip ok">under cap ✓</span>` : `<span class="chip bad">OVER CAP</span>`;
+  const moreNote = d.total_available > d.contacts ? ` of ${d.total_available} (capped)` : '';
   $('summary').innerHTML = `
     <div class="stat"><b>${d.count}</b><span>actions queued</span></div>
-    <div class="stat"><b>${d.contacts}</b><span>contacts × ${d.steps} steps</span></div>
+    <div class="stat"><b>${d.contacts}${moreNote}</b><span>contacts × ${d.steps} steps</span></div>
     <div class="stat"><b>${d.accounts}</b><span>accounts pooled</span></div>
     <div class="stat"><b>${d.peak_invites_per_account_day} / ${d.invite_cap}</b><span>peak invites·acct·day ${capChip}</span></div>`;
   const body = $('queue').querySelector('tbody'); body.innerHTML='';
