@@ -38,7 +38,7 @@ HERE = Path(__file__).parent
 CONTACTS_CSV = HERE / "contacts.csv"
 OUTPUT_CSV = HERE / "outreach_queue.csv"
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-haiku-4-5"
 
 # --- The Dream 100 sequence (page 15), with human-safe day offsets -----------
 # channel drives which per-account daily cap applies.
@@ -117,7 +117,7 @@ def sequence_with_claude(contact: dict, kb_text: str) -> dict:
         f"Scraped profile notes: {contact['scraped_profile_notes']}\n"
     )
     resp = client.messages.parse(
-        model=MODEL, max_tokens=3000, thinking={"type": "adaptive"},
+        model=MODEL, max_tokens=3000,
         system=system, messages=[{"role": "user", "content": prompt}],
         output_format=Dream100Sequence,
     )

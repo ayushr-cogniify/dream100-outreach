@@ -33,7 +33,7 @@ HERE = Path(__file__).parent
 CONTACTS_CSV = HERE / "contacts.csv"
 OUTPUT_CSV = HERE / "outreach_review.csv"
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-haiku-4-5"
 
 
 # --- The structured shape we force the model to return, one per contact -------
@@ -89,7 +89,6 @@ def generate_with_claude(contacts: List[dict], kb_text: str) -> List[dict]:
         resp = client.messages.parse(
             model=MODEL,
             max_tokens=2000,
-            thinking={"type": "adaptive"},
             system=system,
             messages=[{"role": "user", "content": build_user_prompt(contact)}],
             output_format=Outreach,
