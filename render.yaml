@@ -1,0 +1,12 @@
+# Render Blueprint — free deploy of the Dream 100 app.
+# In Render: New > Blueprint > connect the repo containing this file.
+services:
+  - type: web
+    name: dream100-outreach
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false          # you paste this in Render's dashboard, not in code

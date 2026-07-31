@@ -1,0 +1,8 @@
+anthropic
+pydantic
+fastapi
+uvicorn[standard]
+python-multipart
+openpyxl
+python-docx
+pypdf

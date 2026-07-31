@@ -1,0 +1,6 @@
+name,title,company,linkedin_url,scraped_profile_notes
+Priya Nair,VP of Engineering,Northwind Logistics,https://linkedin.com/in/example-priya,"Recently posted about scaling their microservices team from 20 to 60 engineers. Frustrated with onboarding time for new hires. Ex-Amazon. Cares about developer velocity."
+Marcus Webb,SVP Revenue Operations,Cobalt Retail Group,https://linkedin.com/in/example-marcus,"Shared an article on 'why RevOps is broken.' Company just raised a Series C. Hiring aggressively for sales. Mentions Salesforce + messy data as a pain point in a recent comment."
+Ananya Rao,Director of Data Platform,Helios Health,https://linkedin.com/in/example-ananya,"Speaker at a recent data-governance conference. Healthcare compliance (HIPAA) is a recurring theme in her posts. Team is migrating from on-prem to cloud."
+David Okafor,VP of Customer Success,Brightline SaaS,https://linkedin.com/in/example-david,"Posted about churn being their #1 board-level metric this quarter. Reposts content about AI in support. 500+ SMB customers. Small CS team stretched thin."
+Lena Fischer,SVP Product,Vantage Fintech,https://linkedin.com/in/example-lena,"Writes long-form posts on payments infrastructure. Regulatory pressure in the EU is top of mind. Just launched a new checkout product. Design-quality obsessed."

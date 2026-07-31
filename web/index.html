@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dream 100 Outreach Engine</title>
+<style>
+  :root {
+    --bg:#0f1720; --panel:#18222e; --line:#2a3644; --ink:#e7edf3; --mut:#93a3b3;
+    --accent:#5b9dff; --ok:#39d98a; --bad:#ff6b6b; --chip:#22303f;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { padding:22px 28px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  h1 { font-size:20px; margin:0; letter-spacing:.3px; }
+  .sub { color:var(--mut); font-size:13px; }
+  main { max-width:1060px; margin:0 auto; padding:24px 28px 60px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:20px 22px; margin-bottom:18px; }
+  .card h2 { font-size:15px; margin:0 0 4px; }
+  .step { color:var(--accent); font-weight:700; margin-right:8px; }
+  .hint { color:var(--mut); font-size:13px; margin:2px 0 14px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:10px 0 5px; }
+  input[type=file], input[type=text], input[type=date], input[type=number] {
+    background:var(--bg); border:1px solid var(--line); color:var(--ink);
+    border-radius:8px; padding:9px 11px; width:100%; max-width:340px; }
+  .row { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-end; }
+  button { background:var(--accent); color:#04101f; border:0; border-radius:8px;
+    padding:11px 18px; font-weight:700; cursor:pointer; font-size:14px; }
+  button.ghost { background:var(--chip); color:var(--ink); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .chip { display:inline-block; background:var(--chip); border:1px solid var(--line);
+    border-radius:999px; padding:3px 11px; font-size:12px; color:var(--mut); margin-left:6px; }
+  .chip.ok { color:var(--ok); border-color:#245; } .chip.bad { color:var(--bad); }
+  .note { font-size:13px; color:var(--mut); margin-top:10px; min-height:18px; }
+  .note.ok { color:var(--ok); } .note.bad { color:var(--bad); }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:8px;
+    padding:12px; max-height:150px; overflow:auto; font-size:12px; color:var(--mut); white-space:pre-wrap; }
+  .toggle { display:flex; align-items:center; gap:8px; }
+  .summary { display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 16px; }
+  .stat { background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+  .stat b { font-size:20px; display:block; } .stat span { font-size:12px; color:var(--mut); }
+  .scroll { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; min-width:820px; }
+  th,td { text-align:left; padding:8px 11px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:600; position:sticky; top:0; background:var(--panel); }
+  td.msg { max-width:360px; color:var(--mut); }
+  .tag { font-size:11px; background:var(--chip); border-radius:5px; padding:1px 6px; }
+  .banner { background:#1a2432; border:1px solid var(--line); border-left:3px solid var(--accent);
+    padding:11px 14px; border-radius:8px; font-size:13px; color:var(--mut); margin-bottom:18px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Dream 100 Outreach Engine</h1>
+    <div class="sub">Upload knowledge → upload contacts → generate a safe, scheduled campaign.</div>
+  </div>
+  <div id="statusChips"></div>
+</header>
+
+<main>
+  <div class="banner">
+    Nothing is sent to LinkedIn here. This builds the reviewable, scheduled plan —
+    a human or a compliant tool actions the queue. Live message writing needs an
+    <b>ANTHROPIC_API_KEY</b>; without it, use <b>Dry run</b> for template sequences.
+  </div>
+
+  <div class="card">
+    <h2><span class="step">1</span>Knowledge base</h2>
+    <div class="hint">Your positioning / product / tone. Accepts .md .txt .csv .xlsx .docx .pdf</div>
+    <input type="file" id="kbFile" accept=".md,.txt,.csv,.xlsx,.xls,.docx,.pdf">
+    <button class="ghost" onclick="uploadKB()">Upload</button>
+    <div class="note" id="kbNote"></div>
+    <pre id="kbPreview" style="display:none"></pre>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">2</span>Contacts</h2>
+    <div class="hint">CSV with columns: name, title, company, linkedin_url, scraped_profile_notes</div>
+    <input type="file" id="contactsFile" accept=".csv">
+    <button class="ghost" onclick="uploadContacts()">Upload</button>
+    <div class="note" id="contactsNote"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">3</span>Configure &amp; generate</h2>
+    <div class="row">
+      <div>
+        <label>LinkedIn accounts to pool across</label>
+        <input type="number" id="accounts" value="6" min="1" max="50">
+      </div>
+      <div>
+        <label>Campaign start date</label>
+        <input type="date" id="start">
+      </div>
+      <div>
+        <label>Mode</label>
+        <div class="toggle">
+          <input type="checkbox" id="dryRun" checked>
+          <span id="dryLabel">Dry run (templates, no API)</span>
+        </div>
+      </div>
+      <div><button id="genBtn" onclick="generate()">Generate campaign</button></div>
+    </div>
+    <div class="note" id="genNote"></div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <h2>Scheduled queue</h2>
+    <div class="summary" id="summary"></div>
+    <button class="ghost" onclick="location.href='/api/download'">Download CSV</button>
+    <div class="scroll" style="margin-top:14px; max-height:460px; overflow-y:auto">
+      <table id="queue"><thead><tr>
+        <th>When</th><th>Account</th><th>Channel</th><th>Step</th><th>Contact</th><th>Message</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function refreshStatus() {
+  const s = await (await fetch('/api/status')).json();
+  const chips = [];
+  chips.push(`<span class="chip ${s.api_key_present?'ok':''}">${s.api_key_present?'API key set — live available':'No API key — dry run only'}</span>`);
+  if (s.kb) chips.push(`<span class="chip ok">KB: ${s.kb}</span>`);
+  if (s.contacts) chips.push(`<span class="chip ok">Contacts: ${s.contacts}</span>`);
+  $('statusChips').innerHTML = chips.join('');
+  if (!s.api_key_present) { $('dryRun').checked = true; $('dryRun').disabled = true;
+    $('dryLabel').textContent = 'Dry run (no API key set)'; }
+}
+$('dryRun').addEventListener('change', e => {
+  $('dryLabel').textContent = e.target.checked ? 'Dry run (templates, no API)' : 'Live (Claude writes real copy)';
+});
+
+async function uploadKB() {
+  const f = $('kbFile').files[0];
+  if (!f) return setNote('kbNote','Choose a file first','bad');
+  const fd = new FormData(); fd.append('file', f);
+  setNote('kbNote','Uploading…');
+  const r = await fetch('/api/upload_kb',{method:'POST',body:fd});
+  const d = await r.json();
+  if (!r.ok) return setNote('kbNote', d.error, 'bad');
+  setNote('kbNote', `Loaded ${d.filename} — ${d.chars} characters extracted.`, 'ok');
+  $('kbPreview').style.display='block'; $('kbPreview').textContent = d.preview + (d.chars>600?'…':'');
+  refreshStatus();
+}
+async function uploadContacts() {
+  const f = $('contactsFile').files[0];
+  if (!f) return setNote('contactsNote','Choose a CSV first','bad');
+  const fd = new FormData(); fd.append('file', f);
+  setNote('contactsNote','Uploading…');
+  const r = await fetch('/api/upload_contacts',{method:'POST',body:fd});
+  const d = await r.json();
+  if (!r.ok) return setNote('contactsNote', d.error, 'bad');
+  setNote('contactsNote', `Loaded ${d.count} contacts (${d.sample.join(', ')}${d.count>5?'…':''}).`, 'ok');
+  refreshStatus();
+}
+async function generate() {
+  const fd = new FormData();
+  fd.append('accounts', $('accounts').value);
+  fd.append('start', $('start').value);
+  fd.append('dry_run', $('dryRun').checked ? 'true':'false');
+  $('genBtn').disabled = true; setNote('genNote', $('dryRun').checked ? 'Building…' : 'Calling Claude — this can take a moment…');
+  const r = await fetch('/api/generate',{method:'POST',body:fd});
+  const d = await r.json();
+  $('genBtn').disabled = false;
+  if (!r.ok) return setNote('genNote', d.error, 'bad');
+  setNote('genNote', `Done — ${d.count} actions queued.`, 'ok');
+  renderResult(d);
+}
+function renderResult(d) {
+  $('resultCard').style.display='block';
+  const capChip = d.cap_ok ? `<span class="chip ok">under cap ✓</span>` : `<span class="chip bad">OVER CAP</span>`;
+  $('summary').innerHTML = `
+    <div class="stat"><b>${d.count}</b><span>actions queued</span></div>
+    <div class="stat"><b>${d.contacts}</b><span>contacts × ${d.steps} steps</span></div>
+    <div class="stat"><b>${d.accounts}</b><span>accounts pooled</span></div>
+    <div class="stat"><b>${d.peak_invites_per_account_day} / ${d.invite_cap}</b><span>peak invites·acct·day ${capChip}</span></div>`;
+  const body = $('queue').querySelector('tbody'); body.innerHTML='';
+  for (const row of d.rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${row.scheduled_at.replace('T',' ')}</td>
+      <td><span class="tag">${row.account}</span></td>
+      <td>${row.channel}</td><td>${row.step}</td>
+      <td>${row.contact_name}<br><span style="color:var(--mut);font-size:12px">${row.title}, ${row.company}</span></td>
+      <td class="msg">${escapeHtml(row.message)}</td>`;
+    body.appendChild(tr);
+  }
+}
+function setNote(id,msg,cls){ const n=$(id); n.textContent=msg; n.className='note'+(cls?' '+cls:''); }
+function escapeHtml(s){ return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+$('start').value = new Date().toISOString().slice(0,10);
+refreshStatus();
+</script>
+</body>
+</html>
